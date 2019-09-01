@@ -1,0 +1,69 @@
+version: '3.4'
+
+x-logging: &default-logging
+  options:
+    max-size: '50m'
+    max-file: '1'
+  driver: json-file
+
+services:
+
+  kafka:
+    image: catenae/kafka
+    logging: *default-logging
+
+  master:
+    image: catenae/ancoris
+    command: master.py -k kafka:9092
+    environment:
+      JSONRPC_HOST: master
+      JSONRPC_PORT: '4096'
+      JSONRPC_SCHEME: http
+    ports:
+      - 4096:4096
+    restart: always
+    depends_on:
+      - kafka
+
+  worker0:
+    image: catenae/ancoris
+    command: worker.py -k kafka:9092
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /media/adfs:/media/adfs:rw,shared
+    privileged: True
+    environment:
+      JSONRPC_HOST: worker0
+      JSONRPC_PORT: '2048'
+      JSONRPC_SCHEME: http
+    ports:
+      - 2048:2048
+    restart: always
+    depends_on:
+      - kafka
+  
+  # worker1:
+  #   image: catenae/ancoris
+  #   command: worker.py -k kafka:9092
+  #   environment:
+  #     JSONRPC_HOST: worker1
+  #     JSONRPC_PORT: '9496'
+  #     JSONRPC_SCHEME: http
+  #   ports:
+  #     - 9496:9496
+  #   restart: always
+  #   depends_on:
+  #     - kafka
+
+  # worker2:
+  #   image: catenae/ancoris
+  #   command: worker.py -k kafka:9092
+  #   environment:
+  #     JSONRPC_HOST: worker2
+  #     JSONRPC_PORT: '9497'
+  #     JSONRPC_SCHEME: http
+  #   ports:
+  #     - 9497:9497
+  #   restart: always
+  #   depends_on:
+  #     - kafka

@@ -1,4 +1,0 @@
-pyyaml
-flask
-flask-restful
-humanfriendly

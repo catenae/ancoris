@@ -1,5 +1,0 @@
-pyyaml
-docker==2.5.0
-consulate
-flask
-flask-restful

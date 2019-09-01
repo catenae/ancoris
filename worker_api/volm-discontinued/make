@@ -1,3 +1,0 @@
-#!/bin/bash
-go build volm.go
-sudo chown root volm && sudo chmod 4755 volm
