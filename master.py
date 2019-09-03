@@ -5,6 +5,7 @@ from catenae import Link, Electron, rpc, utils as catenae_utils
 from random import randint
 import json
 from enum import Enum
+from common import startup_text
 
 
 class AncorisMaster(Link):
@@ -22,22 +23,16 @@ class AncorisMaster(Link):
 
     @rpc
     def launch_container(self, request):
-        self.logger.log(json.dumps(self.instances, indent=4))
-
         request_id = catenae_utils.get_uid()
-        self.logger.log(f'task uid: {request_id}')
 
         worker_uid = self._get_worker(request)
         if worker_uid is None:
-            self.logger.log(AncorisMaster.JSONRPC_ERRORS.NO_WORKERS_AVAILABLE)
-            self.logger.log(type(AncorisMaster.JSONRPC_ERRORS.NO_WORKERS_AVAILABLE))
             error = AncorisMaster.JSONRPC_ERRORS.NO_WORKERS_AVAILABLE
             return error.value, error.name
 
-        self.logger.log(f'selected worker: {worker_uid}')
         response = self.jsonrpc_call(worker_uid, 'launch_container', request, request_id=request_id)
         return response
 
 
 if __name__ == "__main__":
-    AncorisMaster().start()
+    AncorisMaster().start(startup_text=startup_text)
