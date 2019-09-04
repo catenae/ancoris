@@ -1,0 +1,19 @@
+nodes:
+user: brunneis
+keyfile: ../not-synced/launcher/zookeeper-new/id_rsa
+
+nodes:
+   node1: &node1
+      address: &addr1 127.0.0.1
+services:
+   zookeeper:
+      nodes:
+         - node1:
+            << : *node1
+   kafka:
+      nodes:
+         nodes:
+            - node1:
+               << : *node1
+         zookeeper_quorum:
+            - *addr1

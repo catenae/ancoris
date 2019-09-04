@@ -3,91 +3,127 @@
 
 from fabric import Connection
 from os import listdir
+import yaml
+import asyncio
+from jinja2 import Environment, FileSystemLoader
 
-# TODO
-# - Render template
-# - Zookeeper custom start method
 
+class ClusterManager:
+    def __init__(self, service_name, node_manager_class):
+        with open(f'conf/{service_name}.yaml', 'r') as input_file:
+            self.service_opts = yaml.safe_load(input_file)['opts']
 
-class Manager:
-    def __init__(self, conn_props, opts):
-        self.conn = Connection(**conn_props)
-        self.opts = opts
+        with open('conf/nodes.yaml', 'r') as input_file:
+            self.global_opts = yaml.safe_load(input_file)
+            nodes = self.global_opts['services'][service_name]['nodes']
+            self.service_opts['nodes'] = nodes
+
+        conn_props = {
+            'port': 22,
+            'user': self.global_opts['user'],
+            'connect_kwargs': {
+                "key_filename": self.global_opts['keyfile']
+            }
+        }
+
+        self.node_managers = []
+        for node in self.service_opts['nodes']:
+            conn_props['host'] = list(node.values())[0]['address']
+            conn = Connection(**conn_props)
+            node_manager = node_manager_class(self.service_opts, conn)
+            self.node_managers.append(node_manager)
 
     def deploy(self):
-        self.pull_image()
-        self.launch_container()
+        asyncio.run(self._deploy_parallel())
+
+    async def _deploy_parallel(self):
+        tasks = []
+        for node_manager in self.node_managers:
+            task = asyncio.create_task(node_manager.deploy())
+            tasks.append(task)
+        for task in tasks:
+            await task
+
+class NodeManager:
+    def __init__(self, opts, conn):
+        self.service_opts = opts
+        self.conn = conn
+
+    async def deploy(self):
+        # Remove this
+        try:
+            self.destroy()
+        except Exception:
+            pass
+
+
+        self.pull()
+        self.run()
         self.configure()
+        self.start()
 
-    def pull_image(self):
-        self.conn.run(f"docker pull {self.opts['container_image']}")
+    def pull(self):
+        self.conn.run(f"docker pull {self.service_opts['container_image']}")
 
-    def launch_container(self):
+    def run(self):
         self.conn.run('docker run -tid '
                       # Network
                       + '--net=host '
                       # Name
-                      + f"--name {self.opts['container_name']} "
+                      + f"--name {self.service_opts['container_name']} "
                       # Image
-                      + f"{self.opts['container_image']}")
+                      + f"{self.service_opts['container_image']}")
 
-    def stop_container(self):
-        self.conn.run(f"docker stop {self.opts['container_name']}")
+    def stop(self):
+        self.conn.run(f"docker stop {self.service_opts['container_name']}")
 
-    def remove_container(self):
-        self.conn.run(f"docker rm -f {self.opts['container_name']}")
-
-    def render_template(self):
-        pass
+    def destroy(self):
+        self.conn.run(f"docker rm -f {self.service_opts['container_name']}")
 
     def configure(self):
+        self._render_templates()
         self._make_host_tmp_path()
         self._copy_files_to_host()
         self._copy_files_to_container()
         self._remove_files_from_host()
+    
+    def _render_templates(self):
+        for template_filename in listdir(self.service_opts['local_conf_path']):
+            if not '.template' in template_filename:
+                continue
+            conf_filename = template_filename.split('.template')[0]
+            env = Environment(loader=FileSystemLoader(self.service_opts['local_conf_path']))
+            with open(f"{self.service_opts['local_conf_path']}{conf_filename}", 'w') as output_file:
+                output_file.write(env.get_template(template_filename).render(self.service_opts))
 
     def _make_host_tmp_path(self):
-        self.conn.run(f"mkdir -p {self.opts['host_conf_path']}")
+        self.conn.run(f"mkdir -p {self.service_opts['host_conf_path']}")
 
     def _copy_files_to_host(self):
-        for file in listdir(self.opts['local_conf_path']):
-            self.conn.put(f"{self.opts['local_conf_path']}{file}",
-                          remote=self.opts['host_conf_path'])
+        for file in listdir(self.service_opts['local_conf_path']):
+            self.conn.put(f"{self.service_opts['local_conf_path']}{file}",
+                          remote=self.service_opts['host_conf_path'])
 
     def _copy_files_to_container(self):
         self.conn.run(
-            f"docker cp {self.opts['host_conf_path']}zoo.cfg {self.opts['container_name']}:{self.opts['container_conf_path']}"
+            f"docker cp {self.service_opts['host_conf_path']}zoo.cfg {self.service_opts['container_name']}:{self.service_opts['container_conf_path']}"
         )
 
     def _remove_files_from_host(self):
-        self.conn.run(f"rm -rf {self.opts['host_conf_path']}")
+        self.conn.run(f"rm -rf {self.service_opts['host_conf_path']}")
 
     def start(self):
         raise NotImplementedError
 
 
-class ZookeeperManager(Manager):
+class ZookeeperClusterManager(ClusterManager):
+    def __init__(self):
+        super().__init__('zookeeper', ZookeeperNodeManager)
+
+
+class ZookeeperNodeManager(NodeManager):
     def start(self):
-        pass
+        self.conn.run(f"docker exec {self.service_opts['container_name']} zkServer.sh start")
 
 
-conn_props = {
-    'host': '127.0.0.1',
-    'port': 22,
-    'user': 'brunneis',
-    'connect_kwargs': {
-        "key_filename": "id_rsa"
-    }
-}
-
-opts = {
-    'container_image': 'catenae/zookeeper',
-    'container_name': 'ancoris-zookeeper',
-    'local_conf_path': 'conf/zookeeper/',
-    'container_conf_path': '/opt/zookeeper/default/conf/',
-    'host_conf_path': '/tmp/ancoris/zookeeper/'
-}
-
-manager = ZookeeperManager(conn_props, opts)
-manager.deploy()
-manager.start()
+ZookeeperClusterManager().deploy()

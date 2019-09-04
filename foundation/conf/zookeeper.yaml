@@ -1,0 +1,21 @@
+opts:
+  container_data_path: /data/
+  host_data_path: /containers/zookeeper/data/
+
+  java_home: /usr
+
+  autopurge_interval: 1
+  client_port: 2181
+  data_paths:
+    - /media/vol1/zookeeper/
+  init_limit: 5
+  max_connections: 60
+  retained_snaps: 3
+  sync_limit: 2
+  tick_time: 2000
+
+  container_image: catenae/zookeeper
+  container_name: ancoris-zookeeper
+  local_conf_path: conf/zookeeper/
+  container_conf_path: /opt/zookeeper/default/conf/
+  host_conf_path: /tmp/ancoris/zookeeper/
