@@ -12,9 +12,7 @@ syncLimit={{ sync_limit }}
 # the directory where the snapshot is stored.
 # do not use /tmp for storage, /tmp here is just 
 # example sakes.
-dataDir={% for dir in data_paths -%}
-  {% if loop.index > 1 -%},{% endif -%}
-  {{ dir }}{% endfor %}
+dataDir={{ data_dir }}
 
 # the port at which the clients will connect
 clientPort={{ client_port }}
