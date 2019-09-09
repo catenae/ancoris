@@ -38,4 +38,4 @@ autopurge.purgeInterval={{ autopurge_interval }}
 {% for key, value in node.items() -%}
 server.{{ index }}={{ value.address }}:2888:3888
 {% endfor -%}
-{% endfor -%} 
+{% endfor -%}

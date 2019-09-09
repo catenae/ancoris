@@ -3,6 +3,7 @@
 
 from fabric import Connection
 from os import listdir
+from os.path import isfile, isdir
 import yaml
 import asyncio
 from jinja2 import Environment, FileSystemLoader
@@ -12,6 +13,7 @@ class ClusterManager:
     def __init__(self, service_name, node_manager_class):
         with open(f'conf/{service_name}.yaml', 'r') as input_file:
             self.opts = yaml.safe_load(input_file)['opts']
+
 
         with open('conf/nodes.yaml', 'r') as input_file:
             self.global_opts = yaml.safe_load(input_file)
@@ -93,26 +95,70 @@ class NodeManager:
         self._remove_files_from_host()
     
     def _render_templates(self):
-        for template_filename in listdir(self.opts['local_conf_path']):
-            if not '.template' in template_filename:
-                continue
-            conf_filename = template_filename.split('.template')[0]
-            env = Environment(loader=FileSystemLoader(self.opts['local_conf_path']))
-            with open(f"{self.opts['local_conf_path']}{conf_filename}", 'w') as output_file:
-                output_file.write(env.get_template(template_filename).render(self.opts))
+        for template_path in self._get_all_template_paths():
+            self._render_single_template(template_path)
+
+    def _get_all_template_paths(self):
+        for path in self._get_all_file_paths():
+            if '.template' in path:
+                yield path
+
+    def _get_all_conf_files_paths(self):
+        for path in self._get_all_file_paths():
+            if not '.template' in path:
+                yield path
+
+    def _get_all_file_paths(self, path=None):
+        if path is None:
+            path = self.opts['local_conf_path']
+
+        for file in listdir(path):
+            path += file
+            if isdir(path):
+                path += '/'
+                yield from self._get_all_file_paths(path)
+            elif isfile(path):
+                yield path
+
+    def _render_single_template(self, path):
+        dir_path = NodeManager._get_dir_path_from_file_path(path)
+        target_filename = NodeManager._get_filename_from_template_path(path)
+        env = Environment(loader=FileSystemLoader(dir_path))
+        with open(dir_path + target_filename, 'w') as output_file:
+            output_file.write(env.get_template(f'{target_filename}.template').render(self.opts))
+
+    @staticmethod
+    def _get_filename_from_template_path(path):
+        return path.split('/')[-1].split('.template')[0]
+
+    @staticmethod
+    def _get_dir_path_from_file_path(path):
+        return '/'.join(path.split('/')[:-1]) + '/'
 
     def _make_host_tmp_path(self):
         self.conn.run(f"mkdir -p {self.opts['host_conf_path']}")
 
     def _copy_files_to_host(self):
-        for file in listdir(self.opts['local_conf_path']):
-            self.conn.put(f"{self.opts['local_conf_path']}{file}",
-                          remote=self.opts['host_conf_path'])
+        for path in self._get_all_conf_files_paths():
+            remote_rel_dir_path = self._get_rel_dir_path_from_file_path(path)
+            host_file_path = self.opts['host_conf_path'] + remote_rel_dir_path
+            self.conn.run(f'mkdir -p {host_file_path}')
+            self.conn.put(path, remote=host_file_path)
 
     def _copy_files_to_container(self):
-        self.conn.run(
-            f"docker cp {self.opts['host_conf_path']}zoo.cfg {self.opts['container_name']}:{self.opts['container_conf_path']}"
-        )
+        for path in self._get_all_conf_files_paths():
+            rel_path = self._get_rel_path_from_path(path)
+            container_rel_dir_path = self._get_dir_path_from_file_path(rel_path)
+            self.conn.run(
+                f"docker cp {self.opts['host_conf_path']}{rel_path} {self.opts['container_name']}:{self.opts['container_conf_path'] + container_rel_dir_path}"
+            )
+
+    def _get_rel_path_from_path(self, path):
+        return path.split(self.opts['local_conf_path'])[1]
+
+    def _get_rel_dir_path_from_file_path(self, path):
+        rel_path = self._get_rel_path_from_path(path)
+        return self._get_dir_path_from_file_path(rel_path)
 
     def _remove_files_from_host(self):
         self.conn.run(f"rm -rf {self.opts['host_conf_path']}")
@@ -137,6 +183,5 @@ class ZookeeperNodeManager(NodeManager):
     def configure(self):
         super().configure()
         self.add_myid_file()
-
 
 ZookeeperClusterManager().deploy()

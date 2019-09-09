@@ -4,7 +4,7 @@ opts:
   container_image: catenae/zookeeper-base
   container_name: ancoris-zookeeper
   local_conf_path: conf/zookeeper/
-  container_conf_path: /opt/zookeeper/default/conf/
+  container_conf_path: /opt/zookeeper/default/
   host_conf_path: /tmp/ancoris/zookeeper/
   
   tick_time: 2000
