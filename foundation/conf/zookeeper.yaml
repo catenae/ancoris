@@ -1,6 +1,6 @@
 opts:
   host_data_path: /data/ancoris/zookeeper/
-  container_data_path: /data/zookeeper/
+  container_data_path: &data_dir /data/zookeeper/
   container_image: catenae/zookeeper-base
   container_name: ancoris-zookeeper
   local_conf_path: conf/zookeeper/
@@ -10,7 +10,7 @@ opts:
   tick_time: 2000
   init_limit: 5
   sync_limit: 2
-  data_dir: /data/zookeeper/
+  data_dir: *data_dir
   client_port: 2181
   max_connections: 60
   retained_snaps: 3

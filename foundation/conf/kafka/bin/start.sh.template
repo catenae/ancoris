@@ -1,0 +1,3 @@
+#!/bin/bash
+export KAFKA_HEAP_OPTS="-Xmx{{min_heap}} -Xms{{max_heap}}"
+kafka-server-start.sh -daemon /opt/kafka/default/config/server.properties

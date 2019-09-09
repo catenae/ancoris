@@ -16,25 +16,24 @@ class ClusterManager:
 
 
         with open('conf/nodes.yaml', 'r') as input_file:
-            self.global_opts = yaml.safe_load(input_file)
-            nodes = self.global_opts['services'][service_name]['nodes']
-            self.opts['nodes'] = nodes
+            self.opts['global'] = yaml.safe_load(input_file)
 
         conn_props = {
             'port': 22,
-            'user': self.global_opts['user'],
+            'user': self.opts['global']['user'],
             'connect_kwargs': {
-                "key_filename": self.global_opts['keyfile']
+                "key_filename": self.opts['global']['keyfile']
             }
         }
 
         self.node_managers = []
-        for index, node in enumerate(self.opts['nodes']):
-            conn_props['host'] = list(node.values())[0]['address']
+        for index, node in enumerate(self.opts['global']['services'][service_name]['nodes']):
+            conn_props['host'] = node['address']
             conn = Connection(**conn_props)
 
             node_opts = dict(self.opts)
-            node_opts['index'] = index + 1
+            node_opts['index'] = index
+            node_opts['id'] = index + 1
             node_manager = node_manager_class(node_opts, conn)
             self.node_managers.append(node_manager)
 
@@ -112,13 +111,13 @@ class NodeManager:
         if path is None:
             path = self.opts['local_conf_path']
 
-        for file in listdir(path):
-            path += file
-            if isdir(path):
-                path += '/'
-                yield from self._get_all_file_paths(path)
-            elif isfile(path):
-                yield path
+        for item in listdir(path):
+            new_path = path + item
+            if isdir(new_path):
+                new_path += '/'
+                yield from self._get_all_file_paths(new_path)
+            elif isfile(new_path):
+                yield new_path
 
     def _render_single_template(self, path):
         dir_path = NodeManager._get_dir_path_from_file_path(path)
@@ -149,8 +148,10 @@ class NodeManager:
         for path in self._get_all_conf_files_paths():
             rel_path = self._get_rel_path_from_path(path)
             container_rel_dir_path = self._get_dir_path_from_file_path(rel_path)
+            container_dir_path = self.opts['container_conf_path'] + container_rel_dir_path
+            self.conn.run(f"docker exec {self.opts['container_name']} mkdir -p {container_dir_path}")
             self.conn.run(
-                f"docker cp {self.opts['host_conf_path']}{rel_path} {self.opts['container_name']}:{self.opts['container_conf_path'] + container_rel_dir_path}"
+                f"docker cp {self.opts['host_conf_path']}{rel_path} {self.opts['container_name']}:{container_dir_path}"
             )
 
     def _get_rel_path_from_path(self, path):
@@ -171,17 +172,45 @@ class ZookeeperClusterManager(ClusterManager):
     def __init__(self):
         super().__init__('zookeeper', ZookeeperNodeManager)
 
-
 class ZookeeperNodeManager(NodeManager):
     def start(self):
         self.conn.run(f"docker exec {self.opts['container_name']} zkServer.sh start")
 
     def add_myid_file(self):
-        myid = self.opts['index']
+        myid = self.opts['id']
         self.conn.run(f"docker exec {self.opts['container_name']} bash -c 'echo {myid} > {self.opts['data_dir']}/myid'")
 
     def configure(self):
         super().configure()
         self.add_myid_file()
 
+
+class KafkaClusterManager(ClusterManager):
+    def __init__(self):
+        super().__init__('kafka', KafkaNodeManager)
+
+class KafkaNodeManager(NodeManager):
+    def start(self):
+        self.conn.run(f"docker exec {self.opts['container_name']} start.sh")
+    
+    def set_custom_node_opts(self):
+        self.opts['broker_id'] = self.opts['id']
+
+        node_info = self.opts['global']['services']['kafka']['nodes'][self.opts['index']]
+        self.opts['internal_host'] = node_info['address']
+        self.opts['external_host'] = node_info['address']
+        
+        zookeeper_nodes = self.opts['global']['services']['zookeeper']['nodes']
+        zookeeper_connect = ','.join([f"{node['address']}:{node['port']}" for node in zookeeper_nodes])
+        self.opts['zookeeper_connect'] = zookeeper_connect
+
+    def enable_scripts_execution(self):
+        self.conn.run(f"docker exec {self.opts['container_name']} chmod -R +x {self.opts['container_conf_path']}bin")
+
+    def configure(self):
+        self.set_custom_node_opts()
+        super().configure()
+        self.enable_scripts_execution()
+
 ZookeeperClusterManager().deploy()
+KafkaClusterManager().deploy()
