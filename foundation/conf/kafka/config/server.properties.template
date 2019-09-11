@@ -86,10 +86,10 @@ transaction.state.log.min.isr={{ transaction_state_log_min_isr }}
 # every N messages (or both). This can be done globally and overridden on a per-topic basis.
 
 # The number of messages to accept before forcing a flush of data to disk
-#log.flush.interval.messages=10000
+log.flush.interval.messages={{ log_flush_interval_messages }}
 
 # The maximum amount of time a message can sit in a log before we force a flush
-#log.flush.interval.ms=1000
+log.flush.interval.ms={{ log_flush_interval_ms }}
 
 ############################# Log Retention Policy #############################
 
@@ -127,7 +127,6 @@ zookeeper.connect={{ zookeeper_connect }}
 # Timeout in ms for connecting to zookeeper
 zookeeper.connection.timeout.ms={{ zookeeper_connection_timeout_ms }}
 
-
 ############################# Group Coordinator Settings #############################
 
 # The following configuration specifies the time, in milliseconds, that the GroupCoordinator will delay the initial consumer rebalance.
@@ -137,13 +136,12 @@ zookeeper.connection.timeout.ms={{ zookeeper_connection_timeout_ms }}
 # However, in production environments the default value of 3 seconds is more suitable as this will help to avoid unnecessary, and potentially expensive, rebalances during application startup.
 group.initial.rebalance.delay.ms={{ group_initial_rebalance_delay_ms }}
 
-
-# Max size for messages
-# 1MiB
+############################# Message Size #############################
 replica.fetch.max.bytes={{ replica_fetch_max_bytes }}
 message.max.bytes={{ message_max_bytes }}
 max.message.bytes={{ max_message_bytes }}
 
+############################# Other Settings #############################
 # Already true by default
 auto.create.topics.enable={{ auto_create_topics_enable }}
 
