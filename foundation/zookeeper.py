@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from cluster_manager import ClusterManager, NodeManager
-
-
-class ZookeeperClusterManager(ClusterManager):
-    def __init__(self):
-        super().__init__('zookeeper', ZookeeperNodeManager)
+from node_manager import NodeManager
 
 
 class ZookeeperNodeManager(NodeManager):

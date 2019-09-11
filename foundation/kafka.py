@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from cluster_manager import ClusterManager, NodeManager
-
-
-class KafkaClusterManager(ClusterManager):
-    def __init__(self):
-        super().__init__('kafka', KafkaNodeManager)
+from node_manager import NodeManager
 
 
 class KafkaNodeManager(NodeManager):

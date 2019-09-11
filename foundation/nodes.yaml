@@ -1,6 +1,7 @@
 user: ec2-user
 keyfile: /home/brunneis/ec2.key
 host_tmp_path: /tmp/ancoris/
+local_conf_path: conf/
 
 nodes:
    node1: &node1
@@ -37,7 +38,6 @@ services:
          container_logs_path: /opt/zookeeper/default/logs/
          container_image: catenae/zookeeper-base
          container_name: ancoris-zookeeper
-         local_conf_path: conf/
          container_installation_path: /opt/zookeeper/default/
          tick_time: 2000
          init_limit: 5
@@ -62,7 +62,6 @@ services:
          container_logs_path: /opt/kafka/default/logs/
          container_image: catenae/kafka-base
          container_name: ancoris-kafka
-         local_conf_path: conf/
          container_installation_path: /opt/kafka/default/
          min_heap: 1G
          max_heap: 1G

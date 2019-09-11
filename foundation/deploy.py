@@ -1,24 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from kafka import KafkaClusterManager
-from zookeeper import ZookeeperClusterManager
-from setup import SetupClusterManager
+from cluster_manager import ClusterManager
+from kafka import KafkaNodeManager
+from zookeeper import ZookeeperNodeManager
+from setup import AwsSetupNodeManager
+from worker import AncorisWorkerNodeManager
 
 
-SetupClusterManager().deploy()
+ClusterManager('setup', AwsSetupNodeManager).deploy()
 
-zookeeper = ZookeeperClusterManager()
-kafka = KafkaClusterManager()
-
+kafka = ClusterManager('kafka', KafkaNodeManager)
 kafka.destroy()
+kafka.clean_data() # remove
+
+zookeeper = ClusterManager('zookeeper', ZookeeperNodeManager)
 zookeeper.destroy()
-
-zookeeper.clean_data()
-kafka.clean_data()
-
+zookeeper.clean_data() # remove
 zookeeper.deploy()
-kafka.deploy()
-
+zookeeper.configure()
 zookeeper.start()
+
+kafka.deploy()
+kafka.configure()
 kafka.start()
+
+worker = ClusterManager('worker', AncorisWorkerNodeManager)
+worker.destroy()
+worker.deploy()
