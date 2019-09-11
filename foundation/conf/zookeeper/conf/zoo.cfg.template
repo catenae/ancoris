@@ -33,7 +33,7 @@ autopurge.snapRetainCount={{ retained_snaps }}
 # Set to "0" to disable auto purge feature
 autopurge.purgeInterval={{ autopurge_interval }}
 
-{% for node in global.services.zookeeper.nodes -%}
+{% for node in services.zookeeper.nodes -%}
 {% set loop_index = loop.index -%}
 {% if loop_index == id -%}
 server.{{ loop_index }}=0.0.0.0:{{ leader_port }}:{{ server_port }}
