@@ -4,7 +4,7 @@
 from node_manager import NodeManager
 
 
-class WorkerNodeManager(NodeManager):
+class MasterNodeManager(NodeManager):
     def run(self):
         kafka_addresses = [node['private_address'] for node in self.props['services']['kafka']['nodes']]
         kafka_port = self.props['services']['kafka']['props']['internal_port']
@@ -18,13 +18,8 @@ class WorkerNodeManager(NodeManager):
                       + f"--publish {self.props['node']['private_address']}:{self.props['jsonrpc_port']}:{self.props['jsonrpc_port']} "
                       # Name
                       + f"--name {self.props['container_name']} "
-                      # Volumes
-                      + f"--volume /var/run/docker.sock:/var/run/docker.sock "
-                      + f"--volume /media/adfs:/media/adfs:rw,shared "
-                      # Privileged
-                      + f"--privileged "
                       # Restart policy
                       + f"--restart always "
                       # Docker image
                       + f"{self.props['container_image']} "
-                      + f"worker.py -k {kafka_endpoints}")
+                      + f"master.py -k {kafka_endpoints}")
