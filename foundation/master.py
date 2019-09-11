@@ -15,7 +15,7 @@ class MasterNodeManager(NodeManager):
                       + f"--env JSONRPC_PORT={self.props['jsonrpc_port']} "
                       + f"--env JSONRPC_SCHEME=http "
                       # Published ports
-                      + f"--publish {self.props['node']['private_address']}:{self.props['jsonrpc_port']}:{self.props['jsonrpc_port']} "
+                      + f"--publish {self.props['jsonrpc_port']}:{self.props['jsonrpc_port']} "
                       # Name
                       + f"--name {self.props['container_name']} "
                       # Restart policy
