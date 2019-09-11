@@ -101,7 +101,10 @@ class NodeManager:
         self._copy_files_to_container()
 
     def clean_data(self):
-        self.conn.run(f"sudo rm -rf {self.props['host_data_path']}")
+        if 'host_data_path' in self.props:
+            self.conn.run(f"sudo rm -rf {self.props['host_data_path']}")
+        if 'host_logs_paths' in self.props:
+            self.conn.run(f"sudo rm -rf {self.props['host_logs_paths']}")
 
     def start(self):
         raise NotImplementedError
@@ -228,6 +231,7 @@ class ZookeeperNodeManager(NodeManager):
                       + f"--name {self.props['container_name']} "
                       # Volumes
                       + f"--volume {self.props['host_data_path']}:{self.props['container_data_path']} "
+                      + f"--volume {self.props['host_logs_path']}:{self.props['container_logs_path']} "
                       # Docker image
                       + f"{self.props['container_image']}")
                     
@@ -260,6 +264,7 @@ class KafkaNodeManager(NodeManager):
                       + f"--name {self.props['container_name']} "
                       # Volumes
                       + f"--volume {self.props['host_data_path']}:{self.props['container_data_path']} "
+                      + f"--volume {self.props['host_logs_path']}:{self.props['container_logs_path']} "
                       # Docker image
                       + f"{self.props['container_image']}")
 

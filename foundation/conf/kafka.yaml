@@ -1,5 +1,7 @@
-host_data_path: /data/ancoris/kafka/
+host_data_path: /data/ancoris/kafka/data/
 container_data_path: &log_dir /data/kafka/
+host_logs_path: /data/ancoris/kafka/logs/
+container_logs_path: /opt/kafka/default/logs/
 container_image: catenae/kafka-base
 container_name: ancoris-kafka
 local_conf_path: conf/

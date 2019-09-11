@@ -1,5 +1,7 @@
-host_data_path: /data/ancoris/zookeeper/
+host_data_path: /data/ancoris/zookeeper/data/
 container_data_path: &data_dir /data/zookeeper/
+host_logs_path: /data/ancoris/zookeeper/logs/
+container_logs_path: /opt/zookeeper/default/logs/
 container_image: catenae/zookeeper-base
 container_name: ancoris-zookeeper
 local_conf_path: conf/
