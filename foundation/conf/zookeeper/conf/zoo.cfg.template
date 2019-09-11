@@ -34,6 +34,10 @@ autopurge.snapRetainCount={{ retained_snaps }}
 autopurge.purgeInterval={{ autopurge_interval }}
 
 {% for node in global.services.zookeeper.nodes -%}
-{% set index = loop.index -%}
-server.{{ index }}={{ node.private_address }}:2888:3888
+{% set loop_index = loop.index -%}
+{% if loop_index == id -%}
+server.{{ loop_index }}=0.0.0.0:{{ leader_port }}:{{ server_port }}
+{% else -%}
+server.{{ loop_index }}={{ node.private_address }}:{{ leader_port }}:{{ server_port }}
+{% endif -%}
 {% endfor -%}

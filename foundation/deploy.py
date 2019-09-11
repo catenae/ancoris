@@ -13,32 +13,32 @@ import shutil
 class ClusterManager:
     def __init__(self, service_name, node_manager_class):
         with open(f'conf/{service_name}.yaml', 'r') as input_file:
-            opts = yaml.safe_load(input_file)
-        if opts is None:
-            opts = {}
-        opts['service_name'] = service_name
+            props = yaml.safe_load(input_file)
+        if props is None:
+            props = {}
+        props['service_name'] = service_name
 
         with open('conf/nodes.yaml', 'r') as input_file:
-            opts['global'] = yaml.safe_load(input_file)
+            props['global'] = yaml.safe_load(input_file)
 
         conn_props = {
             'port': 22,
-            'user': opts['global']['user'],
+            'user': props['global']['user'],
             'connect_kwargs': {
-                "key_filename": opts['global']['keyfile']
+                "key_filename": props['global']['keyfile']
             }
         }
 
         self.node_managers = []
-        for index, node in enumerate(opts['global']['services'][service_name]['nodes']):
+        for index, node in enumerate(props['global']['services'][service_name]['nodes']):
             node_conn_props = dict(conn_props)
             node_conn_props['host'] = node['public_address']
 
-            node_opts = dict(opts)
-            node_opts['index'] = index
-            node_opts['id'] = index + 1
+            node_props = dict(props)
+            node_props['index'] = index
+            node_props['id'] = index + 1
 
-            node_manager = node_manager_class(node_opts, node_conn_props)
+            node_manager = node_manager_class(node_props, node_conn_props)
             self.node_managers.append(node_manager)
 
     def deploy(self):
@@ -63,8 +63,9 @@ class ClusterManager:
 
 
 class NodeManager:
-    def __init__(self, opts, conn_props):
-        self.opts = opts
+    def __init__(self, props, conn_props):
+        props['node'] = props['global']['services'][props['service_name']]['nodes'][props['index']]
+        self.props = props
         self.conn = Connection(**conn_props)
 
     def deploy(self):
@@ -73,28 +74,19 @@ class NodeManager:
         self.configure()
 
     def pull(self):
-        self.conn.run(f"docker pull {self.opts['container_image']}")
+        self.conn.run(f"docker pull {self.props['container_image']}")
 
     def run(self):
-        self.conn.run('docker run -tid '
-                      # Network
-                      + '--net=host '
-                      # Name
-                      + f"--name {self.opts['container_name']} "
-                      # Volume
-                      +
-                      f"--volume {self.opts['host_data_path']}:{self.opts['container_data_path']} "
-                      # Image
-                      + f"{self.opts['container_image']}")
+        raise NotImplementedError
 
     def stop(self):
-        self.conn.run(f"docker stop {self.opts['container_name']}")
+        self.conn.run(f"docker stop {self.props['container_name']}")
 
     def destroy(self):
         try:
             self.stop()
             try:
-                self.conn.run(f"docker rm -f {self.opts['container_name']}")
+                self.conn.run(f"docker rm -f {self.props['container_name']}")
             except Exception:
                 return
         except Exception:
@@ -109,19 +101,19 @@ class NodeManager:
         self._copy_files_to_container()
 
     def clean_data(self):
-        self.conn.run(f"sudo rm -rf {self.opts['host_data_path']}")
+        self.conn.run(f"sudo rm -rf {self.props['host_data_path']}")
 
     def start(self):
         raise NotImplementedError
 
     def _get_rendered_service_dir_path(self):
-        return f"{self._get_rendered_dir_path()}{self.opts['service_name']}/"
+        return f"{self._get_rendered_dir_path()}{self.props['service_name']}/"
 
     def _get_rendered_dir_path(self):
-        return f"{self.opts['local_conf_path']}rendered/node{self.opts['id']}/"
+        return f"{self.props['local_conf_path']}rendered/node{self.props['id']}/"
 
     def _prepare_local_env(self):
-        conf_dir_path = f"{self.opts['local_conf_path']}{self.opts['service_name']}/"
+        conf_dir_path = f"{self.props['local_conf_path']}{self.props['service_name']}/"
         rendered_service_dir_path = self._get_rendered_service_dir_path()
 
         try:
@@ -167,7 +159,7 @@ class NodeManager:
         target_filename = NodeManager._get_filename_from_template_path(path)
         env = Environment(loader=FileSystemLoader(dir_path))
         with open(f"{dir_path}{target_filename}", 'w') as output_file:
-            output_file.write(env.get_template(f'{target_filename}.template').render(self.opts))
+            output_file.write(env.get_template(f'{target_filename}.template').render(self.props))
 
     @staticmethod
     def _get_filename_from_template_path(path):
@@ -182,12 +174,12 @@ class NodeManager:
         return '/'.join(path.split('/')[:-1]) + '/'
 
     def _make_host_tmp_path(self):
-        self.conn.run(f"mkdir -p {self.opts['global']['host_tmp_path']}{self.opts['service_name']}")
+        self.conn.run(f"mkdir -p {self.props['global']['host_tmp_path']}{self.props['service_name']}")
 
     def _copy_files_to_host(self):
         for path in self._get_all_conf_files_paths():
             rel_path = self._get_rel_dir_path_from_file_path(path)
-            host_dir_path = f"{self.opts['global']['host_tmp_path']}{self.opts['service_name']}/{rel_path}"
+            host_dir_path = f"{self.props['global']['host_tmp_path']}{self.props['service_name']}/{rel_path}"
             self.conn.run(f'mkdir -p {host_dir_path}')
             self.conn.put(f"{path}", remote=f"{host_dir_path}")
 
@@ -195,19 +187,19 @@ class NodeManager:
         for path in self._get_all_conf_files_paths():
 
             rel_path = self._get_rel_path_from_file_path(path)
-            host_file_path = f"{self.opts['global']['host_tmp_path']}{self.opts['service_name']}/{rel_path}"
+            host_file_path = f"{self.props['global']['host_tmp_path']}{self.props['service_name']}/{rel_path}"
 
             rel_dir_path = self._get_rel_dir_path_from_file_path(path)
-            container_dir_path = self.opts['container_installation_path'] + rel_dir_path
+            container_dir_path = self.props['container_installation_path'] + rel_dir_path
 
             self.conn.run(
-                f"docker exec {self.opts['container_name']} mkdir -p {container_dir_path}")
+                f"docker exec {self.props['container_name']} mkdir -p {container_dir_path}")
             self.conn.run(
-                f"docker cp {host_file_path} {self.opts['container_name']}:{container_dir_path}"
+                f"docker cp {host_file_path} {self.props['container_name']}:{container_dir_path}"
             )
 
     def _get_rel_path_from_file_path(self, path):
-        discarded_path = f"{self._get_rendered_dir_path()}{self.opts['service_name']}/"
+        discarded_path = f"{self._get_rendered_dir_path()}{self.props['service_name']}/"
         rel_path = path.split(discarded_path)[1]
         return rel_path
 
@@ -217,7 +209,7 @@ class NodeManager:
         return '/'.join(rel_dir_path.split('/'))
 
     def _remove_host_tmp_path(self):
-        self.conn.run(f"rm -rf {self.opts['global']['host_tmp_path']}{self.opts['service_name']}")
+        self.conn.run(f"rm -rf {self.props['global']['host_tmp_path']}{self.props['service_name']}")
 
 
 class ZookeeperClusterManager(ClusterManager):
@@ -226,13 +218,26 @@ class ZookeeperClusterManager(ClusterManager):
 
 
 class ZookeeperNodeManager(NodeManager):
+    def run(self):
+        self.conn.run('docker run -di '
+                      # Published ports
+                      + f"--publish {self.props['node']['private_address']}:{self.props['client_port']}:{self.props['client_port']} "
+                      + f"--publish {self.props['node']['private_address']}:{self.props['server_port']}:{self.props['server_port']} "
+                      + f"--publish {self.props['node']['private_address']}:{self.props['leader_port']}:{self.props['leader_port']} "
+                      # Name
+                      + f"--name {self.props['container_name']} "
+                      # Volumes
+                      + f"--volume {self.props['host_data_path']}:{self.props['container_data_path']} "
+                      # Docker image
+                      + f"{self.props['container_image']}")
+                    
     def start(self):
-        self.conn.run(f"docker exec {self.opts['container_name']} zkServer.sh start")
+        self.conn.run(f"docker exec {self.props['container_name']} zkServer.sh start")
 
     def add_myid_file(self):
-        myid = self.opts['id']
+        myid = self.props['id']
         self.conn.run(
-            f"docker exec {self.opts['container_name']} bash -c 'echo {myid} > {self.opts['data_dir']}/myid'"
+            f"docker exec {self.props['container_name']} bash -c 'echo {myid} > {self.props['data_dir']}/myid'"
         )
 
     def configure(self):
@@ -246,28 +251,34 @@ class KafkaClusterManager(ClusterManager):
 
 
 class KafkaNodeManager(NodeManager):
+    def run(self):
+        self.conn.run('docker run -di '
+                      # Published ports
+                      + f"--publish {self.props['node']['private_address']}:{self.props['internal_port']}:{self.props['internal_port']} "
+                      + f"--publish {self.props['external_port']}:{self.props['external_port']} "
+                      # Name
+                      + f"--name {self.props['container_name']} "
+                      # Volumes
+                      + f"--volume {self.props['host_data_path']}:{self.props['container_data_path']} "
+                      # Docker image
+                      + f"{self.props['container_image']}")
+
     def start(self):
-        self.conn.run(f"docker exec {self.opts['container_name']} start.sh")
+        self.conn.run(f"docker exec {self.props['container_name']} start.sh")
 
-    def set_custom_node_opts(self):
-        self.opts['broker_id'] = self.opts['id']
-
-        node_info = self.opts['global']['services']['kafka']['nodes'][self.opts['index']]
-        self.opts['internal_host'] = node_info['private_address']
-        self.opts['external_host'] = node_info['public_address']
-
-        zookeeper_nodes = self.opts['global']['services']['zookeeper']['nodes']
+    def set_custom_node_props(self):
+        zookeeper_nodes = self.props['global']['services']['zookeeper']['nodes']
         zookeeper_connect = ','.join(
             [f"{node['private_address']}:{node['port']}" for node in zookeeper_nodes])
-        self.opts['zookeeper_connect'] = zookeeper_connect
+        self.props['zookeeper_connect'] = zookeeper_connect
 
     def enable_scripts_execution(self):
         self.conn.run(
-            f"docker exec {self.opts['container_name']} chmod -R +x {self.opts['container_installation_path']}bin"
+            f"docker exec {self.props['container_name']} chmod -R +x {self.props['container_installation_path']}bin"
         )
 
     def configure(self):
-        self.set_custom_node_opts()
+        self.set_custom_node_props()
         super().configure()
         self.enable_scripts_execution()
 

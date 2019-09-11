@@ -6,11 +6,8 @@ local_conf_path: conf/
 container_installation_path: /opt/kafka/default/
 min_heap: 1G
 max_heap: 1G
-# broker_id : Null
 internal_port: 19092
 external_port: 9092
-# internal_host: Null
-# external_host: Null
 num_network_threads: 3
 num_io_threads: 8
 socket_send_buffer_bytes: 102400
