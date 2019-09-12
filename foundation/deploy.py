@@ -26,9 +26,9 @@ from master import MasterNodeManager
 # kafka_manager.configure()
 # kafka_manager.start()
 
-# worker_manager = ClusterManager('worker', WorkerNodeManager)
-# worker_manager.destroy()
-# worker_manager.deploy()
+worker_manager = ClusterManager('worker', WorkerNodeManager)
+worker_manager.destroy()
+worker_manager.deploy()
 
 master_manager = ClusterManager('master', MasterNodeManager)
 master_manager.destroy()
