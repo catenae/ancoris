@@ -22,7 +22,7 @@ class AncorisMaster(Link):
         return workers[random_index]
 
     @rpc
-    def launch_container(self, request):
+    def run(self, request):
         request_id = catenae_utils.get_uid()
 
         worker_uid = self._get_worker(request)
@@ -30,8 +30,12 @@ class AncorisMaster(Link):
             error = AncorisMaster.JSONRPC_ERRORS.NO_WORKERS_AVAILABLE
             return error.value, error.name
 
-        response = self.jsonrpc_call(worker_uid, 'launch_container', request, request_id=request_id)
+        response = self.rpc_call(worker_uid, 'run', request, request_id=request_id)
         return response
+
+    @rpc
+    def remove(self, request):
+        self.rpc_notify('broadcast', 'remove', request['container'])
 
 
 if __name__ == "__main__":

@@ -167,18 +167,25 @@ class Docker:
         for container in containers:
             self.stop(container['Id'])
 
-    def stop(container):
+    def stop(self, container):
         self.low_level_client.stop(container)
 
-    def kill(container):
+    def kill(self, container):
         self.low_level_client.kill(container)
 
-    def exists(container):
+    def remove(self, container):
+        try:
+            self.stop(container)
+        except Exception:
+            pass
+        self.low_level_client.remove_container(container, v=True, force=True)
+
+    def exists(self, container):
         if self.info(container):
             return True
         return False
 
-    def info(container):
+    def info(self, container):
         """
         Returns the available information for an existing container
         which matches exactly the given name.
@@ -191,7 +198,7 @@ class Docker:
                 if f'/{container}' == name:
                     return container_info
 
-    def port_mappings(container):
+    def port_mappings(self, container):
         # TODO TCP / UDP, MULTI IP?
         container_info = self.info(container)
         mappings = []
@@ -202,12 +209,12 @@ class Docker:
                     mappings.append({'container': port['PrivatePort'], 'host': port['PublicPort']})
             return mappings
 
-    def status(container):
+    def status(self, container):
         container_info = self.info(container)
         if container_info:
             return container_info['State']
 
-    def logs(container, low_level_client):
+    def logs(self, container, low_level_client):
         logs = self.low_level_client.logs(container, stream=False)
         if logs:
             return logs.decode('utf-8')
